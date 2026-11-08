@@ -1,13 +1,13 @@
 {
   "name": "replit-auto-runner",
   "version": "1.0.0",
-  "description": "Auto restart script for Replit using Playwright",
+  "description": "Auto restart script for Replit using Puppeteer",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "playwright": "^1.40.0"
+    "puppeteer": "^22.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
