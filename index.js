@@ -8,6 +8,7 @@ async function runBot() {
     
     const browser = await puppeteer.launch({
         headless: true,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, // ഓട്ടോമാറ്റിക് പാത്ത് എടുക്കാൻ
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
     });
 
