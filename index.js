@@ -73,7 +73,6 @@ async function runBot() {
         // --- പോപ്പ്-അപ്പ് ക്ലോസ് ചെയ്യാനുള്ള കോഡ് ---
         console.log("Checking for 'Keep using Replit?' popup...");
         try {
-            // നിങ്ങൾ നൽകിയ XPath ഉപയോഗിച്ച് X ബട്ടൺ കണ്ടെത്തുന്നു
             const xpath = "/html/body/div[9]/div/div/div/div[2]/section/button";
             const clicked = await page.evaluate((xp) => {
                 const result = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
@@ -98,29 +97,44 @@ async function runBot() {
 
         console.log("Locating the terminal input area...");
         
-        // HTML-ൽ നിന്ന് ലഭിച്ച കൃത്യമായ സെലക്ടർ: textarea.xterm-helper-textarea
         let terminalFocused = false;
-        try {
-            const textarea = await page.$('textarea.xterm-helper-textarea');
-            if (textarea) {
-                await textarea.click();
-                console.log("Clicked on terminal textarea.");
-                terminalFocused = true;
-            } else {
-                console.log("Terminal textarea not found. Trying to find canvas...");
-                const canvasElements = await page.$$('canvas');
-                if (canvasElements.length > 0) {
-                    await canvasElements[canvasElements.length - 1].click();
-                    console.log(`Clicked on canvas element.`);
+        let attempts = 0;
+        const maxAttempts = 10;
+
+        while (!terminalFocused && attempts < maxAttempts) {
+            attempts++;
+            console.log(`Attempt ${attempts} to locate terminal...`);
+            
+            try {
+                // കൃത്യമായ സെലക്ടർ: textarea.xterm-helper-textarea
+                const textarea = await page.$('textarea.xterm-helper-textarea');
+                if (textarea) {
+                    await textarea.click();
+                    console.log("Clicked on terminal textarea.");
                     terminalFocused = true;
+                    break;
+                } else {
+                    console.log("Terminal textarea not found. Trying to find canvas...");
+                    const canvasElements = await page.$$('canvas');
+                    if (canvasElements.length > 0) {
+                        await canvasElements[canvasElements.length - 1].click();
+                        console.log(`Clicked on canvas element.`);
+                        terminalFocused = true;
+                        break;
+                    }
                 }
+            } catch (e) {
+                console.log("Error locating terminal:", e.message);
             }
-        } catch (e) {
-            console.log("Error locating terminal:", e.message);
+
+            if (!terminalFocused) {
+                console.log("Terminal not found yet. Waiting 3 seconds...");
+                await delay(3000);
+            }
         }
 
         if (!terminalFocused) {
-            console.log("Could not find terminal. Clicking center of screen...");
+            console.log("Could not find terminal after multiple attempts. Clicking center of screen...");
             await page.mouse.click(960, 540);
         }
 
