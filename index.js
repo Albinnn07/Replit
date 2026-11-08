@@ -67,45 +67,30 @@ async function runBot() {
         console.log("Opening Replit project...");
         await page.goto(REPLIT_URL, { waitUntil: 'networkidle2', timeout: 60000 });
 
-        console.log("Waiting for page to load...");
-        await delay(15000); // പേജും പോപ്പ്-അപ്പും വരാൻ കാത്തിരിക്കുന്നു
+        console.log("Waiting for page to fully load...");
+        // പോപ്പ്-അപ്പ് വരാൻ കൂടുതൽ സമയം നൽകുന്നു
+        await delay(25000); 
 
         // --- പോപ്പ്-അപ്പ് ക്ലോസ് ചെയ്യാനുള്ള കോഡ് ---
         console.log("Checking for 'Keep using Replit?' popup...");
         try {
-            // നിങ്ങൾ നൽകിയ XPath-ലെ 'button' ടാഗ് ഉപയോഗിച്ച് ക്ലോസ് ബട്ടൺ കണ്ടെത്തുന്നു
-            // പോപ്പ്-അപ്പിലെ X ബട്ടൺ സാധാരണയായി ഒരു button ടാഗിനുള്ളിലാണ്.
-            const closeButtonSelector = 'div[role="dialog"] button svg path'; 
-            
-            // കൂടുതൽ കൃത്യമായി പോപ്പ്-അപ്പിലെ X ബട്ടൺ കണ്ടെത്താൻ:
-            const popupCloseBtn = await page.$('div[role="dialog"] button[aria-label="Close"]') || 
-                                  await page.$('div[role="dialog"] button') ||
-                                  await page.$('svg[viewBox="0 0 24 24"]'); // ഒരു ഫോൾബാക്ക്
-
-            if (popupCloseBtn) {
-                await popupCloseBtn.click();
-                console.log("Popup closed successfully!");
-                await delay(2000); // പോപ്പ്-അപ്പ് മാറാൻ കാത്തിരിക്കുന്നു
-            } else {
-                // XPath ഉപയോഗിച്ച് നേരിട്ട് കണ്ടെത്താൻ ശ്രമിക്കുന്നു (Puppeteer-ന്റെ പുതിയ പതിപ്പിൽ evaluate ഉപയോഗിക്കാം)
-                const clicked = await page.evaluate(() => {
-                    // XPath ഉപയോഗിച്ച് X ബട്ടൺ കണ്ടെത്തുന്നു
-                    const xpath = "/html/body/div[9]/div/div/div/div[2]/section/button";
-                    const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                    const btn = result.singleNodeValue;
-                    if (btn) {
-                        btn.click();
-                        return true;
-                    }
-                    return false;
-                });
-
-                if (clicked) {
-                    console.log("Popup closed via XPath!");
-                    await delay(2000);
-                } else {
-                    console.log("No popup found, continuing...");
+            // നിങ്ങൾ നൽകിയ XPath ഉപയോഗിച്ച് X ബട്ടൺ കണ്ടെത്തുന്നു
+            const xpath = "/html/body/div[9]/div/div/div/div[2]/section/button";
+            const clicked = await page.evaluate((xp) => {
+                const result = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                const btn = result.singleNodeValue;
+                if (btn) {
+                    btn.click();
+                    return true;
                 }
+                return false;
+            }, xpath);
+
+            if (clicked) {
+                console.log("Popup closed successfully via XPath!");
+                await delay(3000); // പോപ്പ്-അപ്പ് മാറാൻ കാത്തിരിക്കുന്നു
+            } else {
+                console.log("No popup found, continuing...");
             }
         } catch (e) {
             console.log("Error handling popup:", e.message);
@@ -113,6 +98,9 @@ async function runBot() {
         // ------------------------------------------
 
         console.log("Locating the shell area...");
+        // ഇപ്പോൾ ടെർമിനൽ കാണാൻ കഴിയണം
+        await delay(2000);
+        
         // Replit-ന്റെ ടെർമിനൽ canvas ഉപയോഗിച്ചാണ് നിർമ്മിച്ചിരിക്കുന്നത്
         const canvasElements = await page.$$('canvas');
 
