@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer');
+const { connect } = require('puppeteer-real-browser');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -6,13 +6,11 @@ const http = require('http');
 const REPLIT_URL = "https://replit.com/join#t=kgsziuiwjkvqbls-albin312";
 const COOKIE_VALUE = "eyJhbGciOiJSUzI1NiIsImtpZCI6Im45NlJoQSJ9.eyJpc3MiOiJodHRwczovL3Nlc3Npb24uZmlyZWJhc2UuZ29vZ2xlLmNvbS9yZXBsaXQtd2ViIiwibmFtZSI6Ik1pbmVjcmFmdCBTZXJ2ZXIiLCJwaWN0dXJlIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUNnOG9jTE8wQnhOME1qd21LbE10WEkzYmxPZ0I2Vk12bWtRalBnM3JldmpobmJ6UmJ4R0N3XHUwMDNkczk2LWMiLCJyb2xlcyI6W10sInJlcGxpdF91c2VyX2lkIjo2NzM5NDQ0MywiaW50ZXJhY3RpdmVBdXRoIjp0cnVlLCJhdWQiOiJyZXBsaXQtd2ViIiwiYXV0aF90aW1lIjoxNzkzOTgyNjE5LCJ1c2VyX2lkIjoiYThVeEtNV1RXb08wUmdzYUFIMFZFnEVueDU4MyIsInN1YiI6ImE4VXhLTVdUV29PMFJnc2FBSDBWRmhFbng1ODMiLCJpYXQiOjE3OTM5ODI2MTksImV4cCI6MTc5NTE5MjIxOSwiZW1haWwiOiJnYW1lcGxhbmV0NzczQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7Imdvb2dsZS5jb20iOlsiMTA4NTI3MzQ5NTg4MjAyNjA0NjcyIl0sImVtYWlsIjpbImdhbWVwbGFuZXQ3NzNAZ21haWwuY29tIl19LCJzaWduXinXinByb3ZpZGVyIjoiY3VzdG9tIn19.TNDKIgEC15x-Ytyvy7c2IHA799FlMz8Dsv6D10pam26UR8eoahtB0v8QZFGGUt7lw-QLS1TLQyiQ2tSk2djYgQ8A8d0uehtE2UuvDOJ9Gsq0xeO9-NIijFM8DPDVeje68A_62tRvC0cFnJlJPR1q4kvu0V3wc0hzT9ADtniDbl1SGyDtd2PnqLGr6F0tixZnd03ydSZ8kD7kjyNvd9wQ5Pwo7oD3pyPRvYNY8dDbt9JB4qT6B3sihWIo6Kx0lHDML1BAua0YtPRdHjooTzXw0jOXE-n92x-oa32xSNf4lixdTdH0n_91qXxXO_4FhrTjtgG18w9Z_T83EbYZnQzkqA";
 
-const CACHE_DIR = path.join(__dirname, 'node_modules', '.puppeteer-cache');
 const SCREENSHOT_PATH = '/opt/render/project/src/terminal-check.png';
 
-// ---- HTTP സെർവർ ----
+// ---- HTTP സെർവർ (സ്ക്രീൻഷോട്ട് കാണാൻ) ----
 const PORT = process.env.PORT || 10000;
 http.createServer((req, res) => {
-    // സ്ക്രീൻഷോട്ട് കാണാൻ
     if (req.url === '/screenshot' || req.url === '/terminal-check.png') {
         if (fs.existsSync(SCREENSHOT_PATH)) {
             res.writeHead(200, { 'Content-Type': 'image/png' });
@@ -20,28 +18,14 @@ http.createServer((req, res) => {
             return;
         }
         res.writeHead(404);
-        res.end('Screenshot not found yet. Wait for the bot to take it.');
+        res.end('Screenshot not found yet.');
         return;
     }
-    // ഡീഫോൾട്ട്
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Bot is running!\nVisit /screenshot to view the last screenshot.\n');
 }).listen(PORT, () => {
     console.log(`Dummy server listening on port ${PORT}`);
 });
-
-function findChromeExecutable() {
-    const chromeBase = path.join(CACHE_DIR, 'chrome');
-    if (fs.existsSync(chromeBase)) {
-        const versions = fs.readdirSync(chromeBase).filter(v => v.startsWith('linux-'));
-        versions.sort().reverse();
-        for (const version of versions) {
-            const execPath = path.join(chromeBase, version, 'chrome-linux64', 'chrome');
-            if (fs.existsSync(execPath)) return execPath;
-        }
-    }
-    return null;
-}
 
 // ---- ഹ്യൂമൻ-ലൈക്ക് ഫംഗ്ഷനുകൾ ----
 function randomInt(min, max) {
@@ -87,26 +71,24 @@ async function takeScreenshot(page, label = '') {
 
 // ---- മെയിൻ ----
 async function runBot() {
-    console.log("Launching browser with Puppeteer...");
-    const executablePath = findChromeExecutable();
-    if (!executablePath) {
-        console.error("Chrome executable not found!");
-        process.exit(1);
-    }
+    console.log("Launching real browser...");
 
-    const browser = await puppeteer.launch({
-        headless: true,
-        executablePath,
+    // puppeteer-real-browser ഉപയോഗിച്ച് ബ്രൗസർ ലോഞ്ച് ചെയ്യുക
+    const { browser, page } = await connect({
+        headless: 'auto', // 'auto' എന്നത് OS-ന് അനുയോജ്യമായ രീതി തിരഞ്ഞെടുക്കും
+        turnstile: true,  // Cloudflare Turnstile CAPTCHA ഓട്ടോമാറ്റിക് ആയി ക്ലിക്ക് ചെയ്യാൻ ശ്രമിക്കും
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--single-process'
-        ]
+            '--disable-gpu'
+        ],
+        customConfig: {
+            // Render-ൽ Chrome എവിടെയാണെന്ന് വ്യക്തമാക്കുക
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+        }
     });
 
-    const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
 
     await page.setCookie({
@@ -123,13 +105,12 @@ async function runBot() {
         await page.goto(REPLIT_URL, { waitUntil: 'networkidle2', timeout: 60000 });
 
         console.log("Waiting for page to fully load...");
-        await randomDelay(20000, 30000);
+        await randomDelay(25000, 35000);
 
         // ---- പോപ്പ്-അപ്പ് ക്ലോസ് ----
         console.log("Checking for popup...");
         let popupClosed = false;
         try {
-            // 1. XPath
             const xpath = "/html/body/div[9]/div/div/div/div[2]/section/button";
             popupClosed = await page.evaluate((xp) => {
                 const r = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
@@ -138,7 +119,6 @@ async function runBot() {
                 return false;
             }, xpath);
 
-            // 2. "Keep using Replit" എന്ന ടെക്സ്റ്റ്
             if (!popupClosed) {
                 popupClosed = await page.evaluate(() => {
                     const els = Array.from(document.querySelectorAll('div, span, h1, h2, h3, p'));
@@ -152,24 +132,6 @@ async function runBot() {
                 });
             }
 
-            // 3. "Upgrade to Core" എന്ന ബട്ടൺ
-            if (!popupClosed) {
-                popupClosed = await page.evaluate(() => {
-                    const btns = Array.from(document.querySelectorAll('button'));
-                    const upgrade = btns.find(b => b.innerText && b.innerText.includes('Upgrade to Core'));
-                    if (upgrade) {
-                        const dialog = upgrade.closest('div[role="dialog"]') || upgrade.closest('div');
-                        if (dialog) {
-                            const closeBtn = dialog.querySelector('button[aria-label="Close"]')
-                                           || dialog.querySelector('svg')?.closest('button');
-                            if (closeBtn) { closeBtn.click(); return true; }
-                        }
-                    }
-                    return false;
-                });
-            }
-
-            // 4. വലതുവശത്ത് മുകളിൽ ക്ലിക്ക്
             if (!popupClosed) {
                 console.log("Trying to click top-right corner...");
                 await humanLikeMouseMove(page, 1800, 300, 15);
@@ -180,14 +142,11 @@ async function runBot() {
             if (popupClosed) {
                 console.log("Popup handled.");
                 await randomDelay(2000, 4000);
-            } else {
-                console.log("No popup found, continuing...");
             }
         } catch (e) {
             console.log("Popup error:", e.message);
         }
 
-        // ---- പോപ്പ്-അപ്പ് മാറിയെന്ന് ഉറപ്പാക്കാൻ സ്ക്രീൻഷോട്ട് ----
         await takeScreenshot(page, 'after-popup');
 
         // ---- ടെർമിനൽ കണ്ടെത്തൽ ----
@@ -202,7 +161,6 @@ async function runBot() {
             console.log(`Attempt ${attempts} to locate terminal...`);
 
             try {
-                // 1. textarea.xterm-helper-textarea
                 const textarea = await page.$('textarea.xterm-helper-textarea');
                 if (textarea) {
                     const box = await textarea.boundingBox();
@@ -217,7 +175,6 @@ async function runBot() {
                     break;
                 }
 
-                // 2. ഏതെങ്കിലും canvas
                 const canvases = await page.$$('canvas');
                 if (canvases.length > 0) {
                     const canvas = canvases[canvases.length - 1];
@@ -233,16 +190,6 @@ async function runBot() {
                     break;
                 }
 
-                // 3. സാധാരണ textarea
-                const anyTextarea = await page.$('textarea');
-                if (anyTextarea) {
-                    await anyTextarea.click();
-                    console.log("Clicked on generic textarea.");
-                    terminalFocused = true;
-                    break;
-                }
-
-                // 4. സ്ക്രീനിന്റെ നടുവിൽ ക്ലിക്ക്
                 await humanLikeMouseMove(page, 960, 540, 10);
                 await page.mouse.click(960, 540);
                 const active = await page.evaluate(() => document.activeElement.tagName);
@@ -262,7 +209,6 @@ async function runBot() {
             }
         }
 
-        // ---- ടെർമിനൽ ലഭിച്ചില്ലെങ്കിൽ സ്ക്രീൻഷോട്ട് എടുക്കുക ----
         if (!terminalFocused) {
             console.log("Terminal not found after attempts. Taking debug screenshot...");
             await takeScreenshot(page, 'terminal-not-found');
@@ -277,7 +223,6 @@ async function runBot() {
         await page.keyboard.press('Enter');
         console.log("Command './start.sh' typed and Enter pressed!");
 
-        // ---- കമാൻഡ് കഴിഞ്ഞ് സ്ക്രീൻഷോട്ട് ----
         await randomDelay(2000, 3000);
         await takeScreenshot(page, 'after-command');
 
