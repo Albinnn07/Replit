@@ -68,15 +68,16 @@ async function runBot() {
         await page.goto(REPLIT_URL, { waitUntil: 'networkidle2', timeout: 60000 });
 
         console.log("Waiting for page to fully load...");
-        // പോപ്പ്-അപ്പ് വരാൻ കൂടുതൽ സമയം നൽകുന്നു
-        await delay(25000); 
+        // പേജ് ലോഡ് ആകാൻ കൂടുതൽ സമയം നൽകുന്നു
+        await delay(30000); 
 
         // --- പോപ്പ്-അപ്പ് ക്ലോസ് ചെയ്യാനുള്ള കോഡ് ---
         console.log("Checking for 'Keep using Replit?' popup...");
+        let popupClosed = false;
         try {
-            // നിങ്ങൾ നൽകിയ XPath ഉപയോഗിച്ച് X ബട്ടൺ കണ്ടെത്തുന്നു
+            // 1. ആദ്യം നിങ്ങൾ നൽകിയ XPath ഉപയോഗിച്ച് നോക്കാം
             const xpath = "/html/body/div[9]/div/div/div/div[2]/section/button";
-            const clicked = await page.evaluate((xp) => {
+            popupClosed = await page.evaluate((xp) => {
                 const result = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                 const btn = result.singleNodeValue;
                 if (btn) {
@@ -86,8 +87,38 @@ async function runBot() {
                 return false;
             }, xpath);
 
-            if (clicked) {
-                console.log("Popup closed successfully via XPath!");
+            // 2. XPath പരാജയപ്പെട്ടാൽ, പോപ്പ്-അപ്പിന്റെ ഉള്ളടക്കം കൊണ്ട് കണ്ടെത്താൻ ശ്രമിക്കാം
+            if (!popupClosed) {
+                console.log("XPath failed. Trying to find popup by text content...");
+                popupClosed = await page.evaluate(() => {
+                    // "Keep using Replit?" എന്ന് എഴുതിയിട്ടുള്ള ഏതെങ്കിലും div ഉണ്ടോ എന്ന് നോക്കുന്നു
+                    const elements = Array.from(document.querySelectorAll('div, span, h1, h2, h3, p'));
+                    const popupTitle = elements.find(el => el.innerText && el.innerText.includes('Keep using Replit'));
+                    
+                    if (popupTitle) {
+                        // അതിന്റെ അടുത്തുള്ള X ബട്ടൺ കണ്ടെത്താൻ ശ്രമിക്കുന്നു
+                        const closeBtn = popupTitle.closest('div[role="dialog"]')?.querySelector('button') || 
+                                         document.querySelector('button[aria-label="Close"]') ||
+                                         document.querySelector('svg path'); // ഒരു ഫോൾബാക്ക്
+                        if (closeBtn) {
+                            closeBtn.click();
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+            }
+
+            // 3. ഇപ്പോഴും പരാജയപ്പെട്ടാൽ, സ്ക്രീനിന്റെ വലതുവശത്ത് മുകളിൽ ക്ലിക്ക് ചെയ്യാൻ ശ്രമിക്കാം (X ബട്ടൺ അവിടെയാണ്)
+            if (!popupClosed) {
+                console.log("Trying to click top-right corner where X button usually is...");
+                // സ്ക്രീനിന്റെ വലതുവശത്ത് മുകളിൽ ക്ലിക്ക് ചെയ്യുന്നു (X ബട്ടണിന്റെ സ്ഥാനം)
+                await page.mouse.click(1800, 300);
+                popupClosed = true; // ക്ലിക്ക് ചെയ്തു എന്ന് കരുതുന്നു
+            }
+
+            if (popupClosed) {
+                console.log("Popup closed successfully!");
                 await delay(3000); // പോപ്പ്-അപ്പ് മാറാൻ കാത്തിരിക്കുന്നു
             } else {
                 console.log("No popup found, continuing...");
@@ -98,21 +129,26 @@ async function runBot() {
         // ------------------------------------------
 
         console.log("Locating the shell area...");
-        // ഇപ്പോൾ ടെർമിനൽ കാണാൻ കഴിയണം
         await delay(2000);
         
         // Replit-ന്റെ ടെർമിനൽ canvas ഉപയോഗിച്ചാണ് നിർമ്മിച്ചിരിക്കുന്നത്
-        const canvasElements = await page.$$('canvas');
+        let canvasElements = await page.$$('canvas');
 
         if (canvasElements.length > 0) {
             console.log(`Found ${canvasElements.length} canvas elements. Clicking the last one...`);
             await canvasElements[canvasElements.length - 1].click();
             await delay(2000);
         } else {
+            // ഒരു പക്ഷേ canvas കണ്ടെത്തിയില്ലെങ്കിൽ, ടെർമിനലിന്റെ സ്ഥാനത്ത് ക്ലിക്ക് ചെയ്യാൻ ശ്രമിക്കാം
+            // നിങ്ങളുടെ സ്ക്രീൻഷോട്ട് പ്രകാരം, ടെർമിനൽ ഏകദേശം സ്ക്രീനിന്റെ നടുവിലാണ്
             console.log("Canvas not found. Clicking center of screen...");
             await page.mouse.click(960, 540);
             await delay(2000);
         }
+
+        // ഒരു പക്ഷേ ഇപ്പോഴും ടെർമിനലിൽ ഫോക്കസ് ലഭിച്ചിട്ടില്ലെങ്കിൽ, കൂടുതൽ ക്ലിക്കുകൾ ചെയ്യാം
+        await page.mouse.click(960, 540); // രണ്ടാമത്തെ ക്ലിക്ക്
+        await delay(1000);
 
         console.log("Typing command...");
         await page.keyboard.type('./start.sh', { delay: 150 }); 
