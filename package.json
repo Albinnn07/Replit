@@ -1,10 +1,10 @@
 {
   "name": "replit-auto-runner",
   "version": "1.0.0",
-  "description": "Auto restart script for Replit using Puppeteer",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "build": "npx puppeteer browsers install chrome"
   },
   "dependencies": {
     "puppeteer": "^22.0.0"
