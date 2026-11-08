@@ -5,6 +5,8 @@ const COOKIE_VALUE = "eyJhbGciOiJSUzI1NiIsImtpZCI6Im45NlJoQSJ9.eyJpc3MiOiJodHRwc
 
 async function runBot() {
     console.log("Launching browser...");
+    
+    // പ്ലേ റൈറ്റ് ബ്രൗസർ ഇൻസ്റ്റാൾ ആയ പാത്ത് ഓട്ടോമാറ്റിക്കായി കണ്ടെത്താൻ ശ്രമിക്കുന്നു
     const browser = await chromium.launch({ 
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
