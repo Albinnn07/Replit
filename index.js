@@ -1,14 +1,13 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
-const http = require('http'); // പോർട്ട് എറർ ഒഴിവാക്കാൻ ചേർത്തത്
+const http = require('http');
 
 const REPLIT_URL = "https://replit.com/join#t=kgsziuiwjkvqbls-albin312";
 const COOKIE_VALUE = "eyJhbGciOiJSUzI1NiIsImtpZCI6Im45NlJoQSJ9.eyJpc3MiOiJodHRwczovL3Nlc3Npb24uZmlyZWJhc2UuZ29vZ2xlLmNvbS9yZXBsaXQtd2ViIiwibmFtZSI6Ik1pbmVjcmFmdCBTZXJ2ZXIiLCJwaWN0dXJlIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUNnOG9jTE8wQnhOME1qd21LbE10WEkzYmxPZ0I2Vk12bWtRalBnM3JldmpobmJ6UmJ4R0N3XHUwMDNkczk2LWMiLCJyb2xlcyI6W10sInJlcGxpdF91c2VyX2lkIjo2NzM5NDQ0MywiaW50ZXJhY3RpdmVBdXRoIjp0cnVlLCJhdWQiOiJyZXBsaXQtd2ViIiwiYXV0aF90aW1lIjoxNzkzOTgyNjE5LCJ1c2VyX2lkIjoiYThVeEtNV1RXb08wUmdzYUFIMFZFnEVueDU4MyIsInN1YiI6ImE4VXhLTVdUV29PMFJnc2FBSDBWRmhFbng1ODMiLCJpYXQiOjE3OTM5ODI2MTksImV4cCI6MTc5NTE5MjIxOSwiZW1haWwiOiJnYW1lcGxhbmV0NzczQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7Imdvb2dsZS5jb20iOlsiMTA4NTI3MzQ5NTg4MjAyNjA0NjcyIl0sImVtYWlsIjpbImdhbWVwbGFuZXQ3NzNAZ21haWwuY29tIl19LCJzaWduXinXinByb3ZpZGVyIjoiY3VzdG9tIn19.TNDKIgEC15x-Ytyvy7c2IHA799FlMz8Dsv6D10pam26UR8eoahtB0v8QZFGGUt7lw-QLS1TLQyiQ2tSk2djYgQ8A8d0uehtE2UuvDOJ9Gsq0xeO9-NIijFM8DPDVeje68A_62tRvC0cFnJlJPR1q4kvu0V3wc0hzT9ADtniDbl1SGyDtd2PnqLGr6F0tixZnd03ydSZ8kD7kjyNvd9wQ5Pwo7oD3pyPRvYNY8dDbt9JB4qT6B3sihWIo6Kx0lHDML1BAua0YtPRdHjooTzXw0jOXE-n92x-oa32xSNf4lixdTdH0n_91qXxXO_4FhrTjtgG18w9Z_T83EbYZnQzkqA";
 
 const CACHE_DIR = path.join(__dirname, 'node_modules', '.puppeteer-cache');
 
-// Render-ന്റെ "No open ports" എറർ ഒഴിവാക്കാൻ ഒരു ഡമ്മി വെബ് സെർവർ
 const PORT = process.env.PORT || 10000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -53,8 +52,6 @@ async function runBot() {
     });
 
     const page = await browser.newPage();
-    
-    // ബ്രൗസർ വിൻഡോ സൈസ് സെറ്റ് ചെയ്യുന്നു
     await page.setViewport({ width: 1920, height: 1080 });
 
     await page.setCookie({
@@ -70,29 +67,66 @@ async function runBot() {
         console.log("Opening Replit project...");
         await page.goto(REPLIT_URL, { waitUntil: 'networkidle2', timeout: 60000 });
 
-        console.log("Waiting for page to fully load...");
-        await delay(20000); // Replit ലോഡ് ആകാൻ കാത്തിരിക്കുന്നു
+        console.log("Waiting for page to load...");
+        await delay(15000); // പേജും പോപ്പ്-അപ്പും വരാൻ കാത്തിരിക്കുന്നു
+
+        // --- പോപ്പ്-അപ്പ് ക്ലോസ് ചെയ്യാനുള്ള കോഡ് ---
+        console.log("Checking for 'Keep using Replit?' popup...");
+        try {
+            // നിങ്ങൾ നൽകിയ XPath-ലെ 'button' ടാഗ് ഉപയോഗിച്ച് ക്ലോസ് ബട്ടൺ കണ്ടെത്തുന്നു
+            // പോപ്പ്-അപ്പിലെ X ബട്ടൺ സാധാരണയായി ഒരു button ടാഗിനുള്ളിലാണ്.
+            const closeButtonSelector = 'div[role="dialog"] button svg path'; 
+            
+            // കൂടുതൽ കൃത്യമായി പോപ്പ്-അപ്പിലെ X ബട്ടൺ കണ്ടെത്താൻ:
+            const popupCloseBtn = await page.$('div[role="dialog"] button[aria-label="Close"]') || 
+                                  await page.$('div[role="dialog"] button') ||
+                                  await page.$('svg[viewBox="0 0 24 24"]'); // ഒരു ഫോൾബാക്ക്
+
+            if (popupCloseBtn) {
+                await popupCloseBtn.click();
+                console.log("Popup closed successfully!");
+                await delay(2000); // പോപ്പ്-അപ്പ് മാറാൻ കാത്തിരിക്കുന്നു
+            } else {
+                // XPath ഉപയോഗിച്ച് നേരിട്ട് കണ്ടെത്താൻ ശ്രമിക്കുന്നു (Puppeteer-ന്റെ പുതിയ പതിപ്പിൽ evaluate ഉപയോഗിക്കാം)
+                const clicked = await page.evaluate(() => {
+                    // XPath ഉപയോഗിച്ച് X ബട്ടൺ കണ്ടെത്തുന്നു
+                    const xpath = "/html/body/div[9]/div/div/div/div[2]/section/button";
+                    const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                    const btn = result.singleNodeValue;
+                    if (btn) {
+                        btn.click();
+                        return true;
+                    }
+                    return false;
+                });
+
+                if (clicked) {
+                    console.log("Popup closed via XPath!");
+                    await delay(2000);
+                } else {
+                    console.log("No popup found, continuing...");
+                }
+            }
+        } catch (e) {
+            console.log("Error handling popup:", e.message);
+        }
+        // ------------------------------------------
 
         console.log("Locating the shell area...");
-        
-        // നിങ്ങൾ നൽകിയ XPath-ലെ canvas എലിമെന്റ് CSS സെലക്ടർ ഉപയോഗിച്ച് കണ്ടെത്തുന്നു
-        // Replit-ന്റെ ടെർമിനൽ എപ്പോഴും 'canvas' ടാഗ് ഉപയോഗിക്കുന്നു
-        const canvasSelector = 'canvas';
-        const canvasElements = await page.$$(canvasSelector);
+        // Replit-ന്റെ ടെർമിനൽ canvas ഉപയോഗിച്ചാണ് നിർമ്മിച്ചിരിക്കുന്നത്
+        const canvasElements = await page.$$('canvas');
 
         if (canvasElements.length > 0) {
-            console.log(`Found ${canvasElements.length} canvas elements. Clicking the last one (likely the terminal)...`);
-            // ഏറ്റവും അവസാനത്തെ canvas ആണ് സാധാരണയായി ടെർമിനൽ
+            console.log(`Found ${canvasElements.length} canvas elements. Clicking the last one...`);
             await canvasElements[canvasElements.length - 1].click();
             await delay(2000);
         } else {
-            console.log("Canvas not found. Trying to click the center of the screen...");
+            console.log("Canvas not found. Clicking center of screen...");
             await page.mouse.click(960, 540);
             await delay(2000);
         }
 
         console.log("Typing command...");
-        // കമാൻഡ് ടൈപ്പ് ചെയ്യുന്നു (ഓരോ അക്ഷരത്തിനും ഇടയിൽ 150ms വ്യത്യാസം)
         await page.keyboard.type('./start.sh', { delay: 150 }); 
         await delay(1000);
         await page.keyboard.press('Enter');
@@ -100,7 +134,6 @@ async function runBot() {
         console.log("Command './start.sh' typed and Enter pressed!");
         console.log("Bot is now running in the background...");
 
-        // ബോട്ട് സജീവമായി നിലനിർത്തുക
         while (true) {
             await delay(30000);
             const title = await page.title();
