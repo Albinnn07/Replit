@@ -1,246 +1,56 @@
-const { connect } = require('puppeteer-real-browser');
-const path = require('path');
-const fs = require('fs');
+const { firefox } = require('playwright');
 const http = require('http');
+const fs = require('fs');
 
-const REPLIT_URL = "https://replit.com/join#t=kgsziuiwjkvqbls-albin312";
-const COOKIE_VALUE = "eyJhbGciOiJSUzI1NiIsImtpZCI6Im45NlJoQSJ9.eyJpc3MiOiJodHRwczovL3Nlc3Npb24uZmlyZWJhc2UuZ29vZ2xlLmNvbS9yZXBsaXQtd2ViIiwibmFtZSI6Ik1pbmVjcmFmdCBTZXJ2ZXIiLCJwaWN0dXJlIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUNnOG9jTE8wQnhOME1qd21LbE10WEkzYmxPZ0I2Vk12bWtRalBnM3JldmpobmJ6UmJ4R0N3XHUwMDNkczk2LWMiLCJyb2xlcyI6W10sInJlcGxpdF91c2VyX2lkIjo2NzM5NDQ0MywiaW50ZXJhY3RpdmVBdXRoIjp0cnVlLCJhdWQiOiJyZXBsaXQtd2ViIiwiYXV0aF90aW1lIjoxNzkzOTgyNjE5LCJ1c2VyX2lkIjoiYThVeEtNV1RXb08wUmdzYUFIMFZFnEVueDU4MyIsInN1YiI6ImE4VXhLTVdUV29PMFJnc2FBSDBWRmhFbng1ODMiLCJpYXQiOjE3OTM5ODI2MTksImV4cCI6MTc5NTE5MjIxOSwiZW1haWwiOiJnYW1lcGxhbmV0NzczQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7Imdvb2dsZS5jb20iOlsiMTA4NTI3MzQ5NTg4MjAyNjA0NjcyIl0sImVtYWlsIjpbImdhbWVwbGFuZXQ3NzNAZ21haWwuY29tIl19LCJzaWduXinXinByb3ZpZGVyIjoiY3VzdG9tIn19.TNDKIgEC15x-Ytyvy7c2IHA799FlMz8Dsv6D10pam26UR8eoahtB0v8QZFGGUt7lw-QLS1TLQyiQ2tSk2djYgQ8A8d0uehtE2UuvDOJ9Gsq0xeO9-NIijFM8DPDVeje68A_62tRvC0cFnJlJPR1q4kvu0V3wc0hzT9ADtniDbl1SGyDtd2PnqLGr6F0tixZnd03ydSZ8kD7kjyNvd9wQ5Pwo7oD3pyPRvYNY8dDbt9JB4qT6B3sihWIo6Kx0lHDML1BAua0YtPRdHjooTzXw0jOXE-n92x-oa32xSNf4lixdTdH0n_91qXxXO_4FhrTjtgG18w9Z_T83EbYZnQzkqA";
-
-const SCREENSHOT_PATH = '/opt/render/project/src/terminal-check.png';
-
-// ---- HTTP സെർവർ (സ്ക്രീൻഷോട്ട് കാണാൻ) ----
+// --- സ്ക്രീൻഷോട്ട് കാണാൻ ഒരു ചെറിയ വെബ് സെർവർ ---
 const PORT = process.env.PORT || 10000;
 http.createServer((req, res) => {
-    if (req.url === '/screenshot' || req.url === '/terminal-check.png') {
-        if (fs.existsSync(SCREENSHOT_PATH)) {
+    if (req.url === '/screenshot') {
+        if (fs.existsSync('screenshot.png')) {
             res.writeHead(200, { 'Content-Type': 'image/png' });
-            fs.createReadStream(SCREENSHOT_PATH).pipe(res);
+            fs.createReadStream('screenshot.png').pipe(res);
             return;
         }
         res.writeHead(404);
-        res.end('Screenshot not found yet.');
+        res.end('Screenshot not ready yet.');
         return;
     }
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot is running!\nVisit /screenshot to view the last screenshot.\n');
-}).listen(PORT, () => {
-    console.log(`Dummy server listening on port ${PORT}`);
-});
+    res.end('Headless Firefox is running. Visit /screenshot to see the last capture.');
+}).listen(PORT, () => console.log(`Server listening on ${PORT}`));
 
-// ---- ഹ്യൂമൻ-ലൈക്ക് ഫംഗ്ഷനുകൾ ----
-function randomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-async function randomDelay(min = 1000, max = 3000) {
-    const ms = randomInt(min, max);
-    console.log(`Waiting ${ms} ms...`);
-    await new Promise(r => setTimeout(r, ms));
-}
-
-async function humanLikeMouseMove(page, targetX, targetY, steps = 20) {
-    const startX = randomInt(100, 500);
-    const startY = randomInt(100, 500);
-    for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        const x = Math.round(startX + (targetX - startX) * t + Math.sin(t * Math.PI) * randomInt(-10, 10));
-        const y = Math.round(startY + (targetY - startY) * t + Math.sin(t * Math.PI) * randomInt(-10, 10));
-        await page.mouse.move(x, y);
-        await new Promise(r => setTimeout(r, randomInt(5, 20)));
-    }
-}
-
-async function humanLikeType(page, text) {
-    for (const char of text) {
-        await page.keyboard.type(char);
-        await new Promise(r => setTimeout(r, randomInt(50, 200)));
-        if (Math.random() < 0.1) {
-            await new Promise(r => setTimeout(r, randomInt(200, 500)));
-        }
-    }
-}
-
-async function takeScreenshot(page, label = '') {
+// --- ഹെഡ്‌ലെസ് ഫയർഫോക്സ് ബോട്ട് ---
+(async () => {
+    console.log('Launching headless Firefox...');
+    
+    // headless: true എന്നത് പ്രധാനം (സ്ട്രീമിംഗ് ഇല്ല)
+    const browser = await firefox.launch({ headless: true });
+    const page = await browser.newPage();
+    
+    // നിങ്ങളുടെ ടാർഗെറ്റ് URL
+    const targetUrl = 'https://replit.com/join#t=kgsziuiwjkvqbls-albin312';
+    
+    console.log(`Navigating to ${targetUrl}`);
     try {
-        await page.screenshot({ path: SCREENSHOT_PATH });
-        console.log(`Screenshot saved (${label}): ${SCREENSHOT_PATH}`);
+        await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 60000 });
     } catch (e) {
-        console.log('Screenshot failed:', e.message);
+        console.log('Navigation warning:', e.message);
     }
-}
-
-// ---- മെയിൻ ----
-async function runBot() {
-    console.log("Launching real browser...");
-
-    // puppeteer-real-browser ഉപയോഗിച്ച് ബ്രൗസർ ലോഞ്ച് ചെയ്യുക
-    const { browser, page } = await connect({
-        headless: 'auto', // 'auto' എന്നത് OS-ന് അനുയോജ്യമായ രീതി തിരഞ്ഞെടുക്കും
-        turnstile: true,  // Cloudflare Turnstile CAPTCHA ഓട്ടോമാറ്റിക് ആയി ക്ലിക്ക് ചെയ്യാൻ ശ്രമിക്കും
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu'
-        ],
-        customConfig: {
-            // Render-ൽ Chrome എവിടെയാണെന്ന് വ്യക്തമാക്കുക
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
-        }
-    });
-
-    await page.setViewport({ width: 1920, height: 1080 });
-
-    await page.setCookie({
-        name: 'connect.sid',
-        value: COOKIE_VALUE,
-        domain: '.replit.com',
-        path: '/',
-        httpOnly: true,
-        secure: true
-    });
-
-    try {
-        console.log("Opening Replit project...");
-        await page.goto(REPLIT_URL, { waitUntil: 'networkidle2', timeout: 60000 });
-
-        console.log("Waiting for page to fully load...");
-        await randomDelay(25000, 35000);
-
-        // ---- പോപ്പ്-അപ്പ് ക്ലോസ് ----
-        console.log("Checking for popup...");
-        let popupClosed = false;
-        try {
-            const xpath = "/html/body/div[9]/div/div/div/div[2]/section/button";
-            popupClosed = await page.evaluate((xp) => {
-                const r = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                const btn = r.singleNodeValue;
-                if (btn) { btn.click(); return true; }
-                return false;
-            }, xpath);
-
-            if (!popupClosed) {
-                popupClosed = await page.evaluate(() => {
-                    const els = Array.from(document.querySelectorAll('div, span, h1, h2, h3, p'));
-                    const title = els.find(el => el.innerText && el.innerText.includes('Keep using Replit'));
-                    if (title) {
-                        const closeBtn = title.closest('div[role="dialog"]')?.querySelector('button')
-                                       || document.querySelector('button[aria-label="Close"]');
-                        if (closeBtn) { closeBtn.click(); return true; }
-                    }
-                    return false;
-                });
-            }
-
-            if (!popupClosed) {
-                console.log("Trying to click top-right corner...");
-                await humanLikeMouseMove(page, 1800, 300, 15);
-                await page.mouse.click(1800, 300);
-                popupClosed = true;
-            }
-
-            if (popupClosed) {
-                console.log("Popup handled.");
-                await randomDelay(2000, 4000);
-            }
-        } catch (e) {
-            console.log("Popup error:", e.message);
-        }
-
-        await takeScreenshot(page, 'after-popup');
-
-        // ---- ടെർമിനൽ കണ്ടെത്തൽ ----
-        console.log("Locating the terminal input area...");
-
-        let terminalFocused = false;
-        let attempts = 0;
-        const maxAttempts = 20;
-
-        while (!terminalFocused && attempts < maxAttempts) {
-            attempts++;
-            console.log(`Attempt ${attempts} to locate terminal...`);
-
-            try {
-                const textarea = await page.$('textarea.xterm-helper-textarea');
-                if (textarea) {
-                    const box = await textarea.boundingBox();
-                    if (box) {
-                        await humanLikeMouseMove(page, box.x + box.width / 2, box.y + box.height / 2);
-                        await textarea.click();
-                    } else {
-                        await textarea.click();
-                    }
-                    console.log("Clicked on terminal textarea.");
-                    terminalFocused = true;
-                    break;
-                }
-
-                const canvases = await page.$$('canvas');
-                if (canvases.length > 0) {
-                    const canvas = canvases[canvases.length - 1];
-                    const box = await canvas.boundingBox();
-                    if (box) {
-                        await humanLikeMouseMove(page, box.x + box.width / 2, box.y + box.height / 2);
-                        await canvas.click();
-                    } else {
-                        await canvas.click();
-                    }
-                    console.log("Clicked on canvas element.");
-                    terminalFocused = true;
-                    break;
-                }
-
-                await humanLikeMouseMove(page, 960, 540, 10);
-                await page.mouse.click(960, 540);
-                const active = await page.evaluate(() => document.activeElement.tagName);
-                console.log("Clicked center. Focus on:", active);
-
-                if (active === 'TEXTAREA' || active === 'CANVAS') {
-                    terminalFocused = true;
-                    break;
-                }
-            } catch (e) {
-                console.log("Error locating terminal:", e.message);
-            }
-
-            if (!terminalFocused) {
-                console.log("Terminal not found yet. Waiting...");
-                await randomDelay(2500, 4000);
-            }
-        }
-
-        if (!terminalFocused) {
-            console.log("Terminal not found after attempts. Taking debug screenshot...");
-            await takeScreenshot(page, 'terminal-not-found');
-        }
-
-        await randomDelay(1000, 2000);
-
-        // ---- കമാൻഡ് ടൈപ്പ് ചെയ്യൽ ----
-        console.log("Typing command...");
-        await humanLikeType(page, './start.sh');
-        await randomDelay(500, 1500);
-        await page.keyboard.press('Enter');
-        console.log("Command './start.sh' typed and Enter pressed!");
-
-        await randomDelay(2000, 3000);
-        await takeScreenshot(page, 'after-command');
-
-        console.log("Bot is now running in the background...");
-
-        while (true) {
-            await randomDelay(25000, 35000);
-            const title = await page.title();
-            console.log(`Bot is alive. Page title: ${title}`);
-        }
-
-    } catch (error) {
-        console.error("An error occurred:", error);
-        await takeScreenshot(page, 'error');
-        await browser.close();
-        console.log("Restarting bot due to error...");
-        setTimeout(runBot, randomInt(5000, 10000));
-    }
-}
-
-runBot();
+    
+    // പേജ് ലോഡ് ആകാൻ കാത്തിരിക്കുക
+    await page.waitForTimeout(5000);
+    
+    // ഇവിടെ നിങ്ങൾക്ക് ക്ലിക്കുകളും ടൈപ്പിംഗും ചേർക്കാം:
+    // ഉദാഹരണത്തിന്: await page.click('text=Some Button');
+    
+    // സ്ക്രീൻഷോട്ട് എടുക്കുക
+    console.log('Taking screenshot...');
+    await page.screenshot({ path: 'screenshot.png', fullPage: false });
+    console.log('Screenshot saved as screenshot.png');
+    
+    // ബ്രൗസർ അടയ്ക്കുക (അല്ലെങ്കിൽ തുറന്ന് വെക്കാം)
+    // await browser.close();
+    
+    // സ്ക്രീൻഷോട്ട് എടുത്തതിന് ശേഷം സ്ക്രിപ്റ്റ് അവസാനിക്കും, 
+    // എന്നാൽ സെർവർ പ്രവർത്തിക്കുന്നത് തുടരും.
+})();
